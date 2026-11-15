@@ -31,7 +31,8 @@ Every case file follows a standardized triage workflow:
 | **03** | [Phishing Unfolding – DNS Exfiltration via PowerShell & nslookup](cases/case-03-phishing-unfolding/investigation.md) | SOC Sim / Splunk / Sysmon | **True Positive** | [Read Case File](cases/case-03-phishing-unfolding/investigation.md) |
 | **04** | [End-to-End Enterprise Intrusion – Macro Foothold to Exfiltration](cases/case-04-macro-foothold-to-exfiltration/investigation.md) | SOC Sim / Sysmon / C2 | **True Positive** | [Read Case File](cases/case-04-macro-foothold-to-exfiltration/investigation.md) |
 | **05** | [CRM Portal Breach – Web Shell Upload to Database Exfiltration](cases/case-05-portal-drop/investigation.md) | Splunk / EDR / Linux | **True Positive** | [Read Case File](cases/case-05-portal-drop/investigation.md) |
-| **06** | *Upcoming Investigation* | Host / Network | In Progress | Pending |
+| **06** | [Malicious PDF Analysis – Weaponized PDF Launch to Encoded PowerShell](cases/case-06-pdf-malware-analysis/investigation.md) | Malware Analysis / PDF | **True Positive** | [Read Case File](cases/case-06-pdf-malware-analysis/investigation.md) |
+| **07** | *Upcoming Investigation* | Host / Network | In Progress | Pending |
 
 ---
 
