@@ -1,7 +1,7 @@
 # Case 05: CRM Portal Breach – Web Shell Upload to Reverse Shell & Database Exfiltration
 
 - **Environment:** TryHackMe – Portal Drop (Medium)
-- **Triage Scope:** Multi-Source Telemetry (Splunk Enterprise Web Access Logs, TryDetectMe XDR, Decodora Offline Decoder, VirusTotal CTI)
+- **Triage Scope:** Multi-Source Telemetry (Splunk Enterprise Web Access Logs, TryDetectMe XDR - the EDR product simulated inside the TryHackMe room, Decodora Offline Decoder, VirusTotal CTI)
 - **Severity:** `Critical` | **Triage Verdict:** `True Positive` (Confirmed Server Compromise & Data Exfiltration)
 - **Escalation Decision:** `Escalated to Tier 2 / Incident Response`
 - **Investigation Outcome:** Room Completed 100% (400/400 pts | Captured Flag: `THM{p0rtal_dropp3d?}`)
