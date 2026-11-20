@@ -1,14 +1,15 @@
 # Case 01: ET MALWARE MirrorBlast CnC Activity M3 (TA505)
 
+- **Environment:** TryHackMe – *Warzone 1* (Medium) | Static PCAP Investigation (Suricata, Brim / Zui, Wireshark)
 - **Alert ID / Rule:** `ET MALWARE MirrorBlast CnC Activity M3`
 - **Severity:** `Critical` | **Triage Verdict:** `True Positive`
-- **Escalation Decision:** `Escalated to Tier 2 / Host Contained`
+- **Escalation Decision:** `Escalate to Tier 2 / Recommend Host Isolation`
 - **MITRE ATT&CK:** `T1566.001` (Spearphishing Attachment), `T1204.002` (Malicious File Execution), `T1059.007` (JavaScript/Scripting), `T1071.001` (Web Protocols - HTTP), `T1041` (Exfiltration Over C2)
 
 ---
 
 ## 1. Executive Summary (3 sentences max)
-An IDS/IPS alert (`ET MALWARE MirrorBlast CnC Activity M3`) triggered on outbound command-and-control (C2) traffic initiated by internal workstation `DESKTOP-6RXUZ74` (`172[.]16[.]1[.]102`) to external infrastructure `169[.]239[.]128[.]11`. Deep packet inspection confirmed the host staged multiple malicious MSI packages (`filter.msi` and `10opd3r_load.msi`) across several external servers, dropping persistent executables into `C:\ProgramData` and exfiltrating Active Directory domain credentials for user `dwight.morales`. Tactical network isolation of the affected workstation was immediately executed, and all associated threat actor (TA505) indicators were defanged and forwarded for enterprise boundary blacklisting and Tier-2 incident response escalation.
+An IDS/IPS alert (`ET MALWARE MirrorBlast CnC Activity M3`) triggered on outbound command-and-control (C2) traffic initiated by internal workstation `DESKTOP-6RXUZ74` (`172[.]16[.]1[.]102`) to external infrastructure `169[.]239[.]128[.]11`. Deep packet inspection confirmed the host staged multiple malicious MSI packages (`filter.msi` and `10opd3r_load.msi`) across several external servers, dropping persistent executables into `C:\ProgramData` and exfiltrating Active Directory domain credentials for user `dwight.morales`. Recommended immediate network isolation of the affected workstation, enterprise boundary blocking of all defanged TA505 indicators, and Tier-2 incident response escalation.
 
 ---
 
@@ -66,14 +67,14 @@ Enrichment of destination IP `169.239.128.11` confirmed known malicious C2 activ
 Before finalizing an alert as a True Positive, alternative benign explanations were evaluated:
 
 1. **Authorized Vulnerability Scan / Penetration Test:**
-   - *Check:* Consulted change management board and security assessment schedules.
-   - *Result:* No authorized red teaming, penetration testing, or scanner activity was scheduled for `stockitforus.net` during this timeframe.
+   - *Production verification:* Check the change-management calendar and red-team schedule for `stockitforus.net`.
+   - *Evidence in the PCAP:* The traffic triggers an Emerging Threats `TA505 MirrorBlast` C2 signature, downloads weaponized `.msi` stagers over raw HTTP, and exfiltrates host/user identity strings (`?data=STOCKITFORUS:DESKTOP-6RXUZ74.stockitforus.net:dwight.morales`) — behavior inconsistent with vulnerability scanners.
 2. **Legitimate Administrative Software Deployment:**
-   - *Check:* Investigated whether `filter.msi` or `10opd3r_load.msi` were legitimate enterprise packages distributed via SCCM/MECM or Microsoft Intune.
-   - *Result:* Packages originated from foreign VPS IP space (`Zappie Host LLC`, bulletproof hosting ranges), bypassed IT change control, and contained untrusted Rebol runtime binaries masquerading in `C:\ProgramData\Local\Google\`.
+   - *Production verification:* Compare `filter.msi` and `10opd3r_load.msi` against approved SCCM/MECM or Intune deployment packages.
+   - *Evidence in the PCAP:* Both MSI packages were pulled directly from external unmanaged VPS IP space (`Zappie Host LLC`) over unencrypted HTTP and dropped binaries (`arab.exe`, `rebol-view-278-3-1.exe`) into `C:\ProgramData\001\` and `C:\ProgramData\Local\Google\` (classic directory masquerading).
 3. **Legitimate Developer / Administrative REBOL Usage:**
-   - *Check:* Assessed whether `REBOL View 2.7.8.3.1` was an approved software tool for user `dwight.morales`.
-   - *Result:* REBOL is not an authorized enterprise runtime in the corporate software repository. Its execution and direct communication with dynamic external hosts confirms evasive living-off-the-land/loader behavior.
+   - *Production verification:* Confirm with asset owner whether `REBOL View 2.7.8.3.1` is an approved tool for `dwight.morales`.
+   - *Evidence in the PCAP:* The `REBOL View 2.7.8.3.1` User-Agent is used strictly for recurring ~30s HTTP C2 beacons to `fidufagios[.]com` carrying encoded parameters (`r?x=...`, `p?x=...`), matching known TA505 MirrorBlast loader tradecraft.
 
 **Conclusion:** All benign hypotheses are systematically disproven. The incident is classified as a confirmed **True Positive**.
 
@@ -102,22 +103,24 @@ Before finalizing an alert as a True Positive, alternative benign explanations w
 
 ---
 
-## 6. Containment & Remediation Actions
+## 6. Recommended Containment & Remediation Actions
+
+*(Because Warzone 1 is a static PCAP analysis lab, the steps below represent the production incident-response playbook that should be executed upon confirming this alert.)*
 
 ### 1. Host-Level Actions (Immediate Tactical Containment)
-- **EDR Host Isolation:** Issued immediate network containment on workstation `DESKTOP-6RXUZ74` via EDR to halt ongoing lateral movement and C2 beaconing.
-- **Process Termination:** Terminated all active processes executing from `C:\ProgramData\001\` and `C:\ProgramData\Local\Google\`, specifically targeting `arab.exe` and `rebol-view-278-3-1.exe`.
-- **File System Quarantine:** Quarantined dropped payload binaries (`arab.exe`, `arab.bin`, `rebol-view-278-3-1.exe`, `exemple.rb`) for dead-box forensic imaging and sandbox detonation.
+- **EDR Host Isolation:** Isolate workstation `DESKTOP-6RXUZ74` (`172.16.1.102`) via EDR to sever active C2 beaconing and prevent lateral movement.
+- **Process Termination:** Terminate active processes running from `C:\ProgramData\001\` and `C:\ProgramData\Local\Google\` (`arab.exe`, `rebol-view-278-3-1.exe`).
+- **File System Quarantine:** Quarantine dropped artifacts (`arab.exe`, `arab.bin`, `rebol-view-278-3-1.exe`, `exemple.rb`) and acquire a forensic triage image.
 
 ### 2. Network-Level Actions (Perimeter Hardening)
-- **Firewall & Proxy Blocks:** Implemented ingress and egress perimeter blocks on all identified external malicious IPs (`169.239.128.11`, `185.10.68.235`, `185.183.96.147`, `192.36.27.92`, `195.149.87.128`).
-- **DNS Sinkholing:** Added `fidufagios[.]com` to internal DNS sinkhole and corporate web proxy blacklists.
-- **IDS/IPS Rule Tuning:** Verified that Suricata rule `ET MALWARE MirrorBlast CnC Activity M3` is enforced in prevention (drop) mode across boundary sensors.
+- **Firewall & Proxy Blocks:** Block egress/ingress to all identified external IPs (`169.239.128.11`, `185.10.68.235`, `185.183.96.147`, `192.36.27.92`, `195.149.87.128`).
+- **DNS Sinkholing:** Sinkhole `fidufagios[.]com` at internal DNS resolvers and block on web proxies to identify any other infected hosts.
+- **IDS/IPS Enforcement:** Ensure Suricata signature `ET MALWARE MirrorBlast CnC Activity M3` is set to drop/block mode on perimeter sensors.
 
 ### 3. Identity-Level Actions
-- **Credential Invalidation:** Reset Active Directory password and revoked all active Kerberos Ticket Granting Tickets (TGT) and active session tokens for user `dwight.morales`.
-- **Audit Log Inspection:** Initiated a retrospective review of domain controller event logs (Event ID 4624/4625/4672) for `dwight.morales` to identify unauthorized authentication attempts.
+- **Credential Reset:** Reset the Active Directory password and revoke active Kerberos TGTs / session tokens for `dwight.morales`.
+- **Audit Log Review:** Pivot into Domain Controller security logs (`Event ID 4624 / 4625 / 4672 / 4768 / 4769`) for `dwight.morales` after `2021-10-05 22:37 UTC` to check for lateral logon activity.
 
-### 4. Escalation & Tier-2 Handoff
-- **Escalation Path:** Transferred complete case file, PCAP extracts, and isolated endpoint telemetry to Tier-2 Incident Response / Digital Forensics team.
-- **Threat Hunting Scope:** Initiated an environment-wide hunt query across SIEM/EDR for occurrences of `rebol-view-*.exe`, writes to `C:\ProgramData\001\`, and outbound requests containing User-Agent `REBOL`.
+### 4. Escalation & Environment-Wide Hunt
+- **Tier-2 Handoff:** Escalate the case file and PCAP artifacts to Tier-2 DFIR for host forensics on `DESKTOP-6RXUZ74`.
+- **SIEM / EDR Hunt:** Sweep all endpoints for `rebol-view-*.exe`, file writes under `C:\ProgramData\001\`, and HTTP traffic with User-Agent `REBOL View*`.

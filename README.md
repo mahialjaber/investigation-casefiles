@@ -32,7 +32,8 @@ Every case file follows a standardized triage workflow:
 | **04** | [End-to-End Enterprise Intrusion – Macro Foothold to Exfiltration](cases/case-04-macro-foothold-to-exfiltration/investigation.md) | SOC Sim / Sysmon / C2 | **True Positive** | [Read Case File](cases/case-04-macro-foothold-to-exfiltration/investigation.md) |
 | **05** | [CRM Portal Breach – Web Shell Upload to Database Exfiltration](cases/case-05-portal-drop/investigation.md) | Splunk / EDR / Linux | **True Positive** | [Read Case File](cases/case-05-portal-drop/investigation.md) |
 | **06** | [Malicious PDF Analysis – Weaponized PDF Launch to Encoded PowerShell](cases/case-06-pdf-malware-analysis/investigation.md) | Malware Analysis / PDF | **True Positive** | [Read Case File](cases/case-06-pdf-malware-analysis/investigation.md) |
-| **07** | *Upcoming Investigation* | Host / Network | In Progress | Pending |
+
+> **Note on False Positive & Benign Noise Triage:** Real SOC queues are dominated by benign noise. Inside these multi-alert scenarios, see **Case 03** (triaging 35 unexecuted spam/phishing alerts vs. 1 real endpoint intrusion), **Case 04 – Evidence 6** (verifying and closing Alert 6352 on Microsoft Office's signed `ai.exe` helper as a False Positive without host escalation), and **Case 05 – Alert 4** (verifying hands-on-keyboard root maintenance on `TMPEU-UATSERVER` as isolated/benign).
 
 ---
 

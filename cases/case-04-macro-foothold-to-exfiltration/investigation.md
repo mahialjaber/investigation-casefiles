@@ -39,7 +39,7 @@ A multi-stage enterprise intrusion was detected originating from a macro-enabled
 | `2026-11-08 15:18:17` | Alert 6354 / Sysmon EID 3 | Outbound C2 channel established from `THM-MSMITH` (`10.60.10.22:54331`) to `45.147.230[.]131:8067`. Telemetry revealed regular callbacks at fixed ~30-second intervals. |
 | `2026-11-08 15:18:18` | Alert 6355 / Sysmon EID 1 | Credential harvesting: Adversary executed `VAULTCMD.EXE` to extract stored credentials from the Windows Credential Manager. |
 | `2026-11-08 15:23:18` | Alert 6357 / Sysmon EID 1 | Network discovery: Adversary invoked `net.exe` and `net1.exe` for local network enumeration and domain resource discovery. |
-| `2026-11-08 04:38:57` | Alert 6358 / Security 4697 | Lateral movement: Lateral transition observed via service installation (`SvcUpdate` with `svc-mktshare`) targeting workstation `THM-SREYES` (`10.60.10.20`). |
+| `2026-11-09 04:38:57` | Alert 6358 / Security 4697 | Lateral movement: Lateral transition observed via service installation (`SvcUpdate` with `svc-mktshare`) targeting workstation `THM-SREYES` (`10.60.10.20`). |
 | `2026-11-09 04:45:48` | Alert 6360 / Sysmon EID 1 | Data staging: Process `7z.exe` executed on `THM-SREYES` to compress sensitive company directories into a local staging archive. |
 | `2026-11-09 04:46:53` | Alert 6361 / Sysmon EID 3 | Data exfiltration: Network connection initiated by `powershell.exe` (PID `14264`) from `THM-SREYES` to `45.147.230[.]131:8067` to transfer the staged archive. |
 
@@ -116,20 +116,20 @@ Before finalizing true-positive escalation, potential benign operational causes 
 
 ---
 
-## 6. Containment & Remediation Actions
+## 6. Recommended Containment & Remediation Actions
 
 ### 1. Tactical Host Containment
-- **Network Isolation:** Quarantined endpoints `THM-MSMITH` and `THM-SREYES` via EDR to sever the active C2 beacon and prevent further lateral spread.
-- **Process Termination:** Terminated all unauthorized PowerShell instances (`PID 8572`, `PID 14264`), the 7-Zip staging process, and the malicious `SvcUpdate` service.
-- **Artifact Quarantine:** Collected and quarantined `Q3_PressKit_Feedback.docm` and `%TEMP%\svchost_update.ps1` for static and dynamic malware analysis.
+- **Network Isolation:** Isolate endpoints `THM-MSMITH` (`10.60.10.22`) and `THM-SREYES` (`10.60.10.20`) via EDR to sever active C2 beaconing and halt lateral spread.
+- **Process & Service Termination:** Terminate unauthorized PowerShell processes (`PID 8572`, `PID 14264`), stop/delete the rogue `SvcUpdate` service, and remove the temporary 7-Zip archive on `THM-SREYES`.
+- **Artifact Quarantine:** Quarantine `Q3_PressKit_Feedback.docm` and `%TEMP%\svchost_update.ps1` for deeper malware analysis.
 
 ### 2. Network-Level Hardening
-- **Perimeter Firewall Blocks:** Added drop rules for `45.147.230[.]131` and `paylink-cdn[.]thm` on perimeter firewalls and corporate web proxies.
-- **DNS Sinkholing:** Sinkholed `paylink-cdn[.]thm` internally to detect any additional endpoints attempting stager retrieval.
+- **Perimeter Firewall Blocks:** Block `45.147.230[.]131:8067` and `paylink-cdn[.]thm` across perimeter firewalls and web proxies.
+- **DNS Sinkholing:** Sinkhole `paylink-cdn[.]thm` internally to identify any other hosts that opened the phishing macro.
 
 ### 3. Identity & Access Remediation
-- **Credential Rotation:** Immediately revoked active Kerberos tickets and forced password resets for user `m.smith` and service account `svc-mktshare`.
-- **Credential Vault Audit:** Audited all credentials accessible via Windows Credential Manager on `THM-MSMITH` to assess the scope of compromised secrets.
+- **Credential Rotation:** Reset passwords and revoke active Kerberos TGTs / sessions for `TRYHATME\m.smith` and `TRYHATME\svc-mktshare`.
+- **Credential Vault Audit:** Audit every credential stored in Windows Credential Manager on `THM-MSMITH` (accessed via `VAULTCMD.EXE`) and rotate all exposed secrets.
 
 ### 4. Enterprise Detection Engineering
 - **Rule 1 (Office Spawning Scripting Interpreters):** Alert on `WINWORD.EXE` or `EXCEL.EXE` spawning `powershell.exe`, `cmd.exe`, or `cscript.exe`.

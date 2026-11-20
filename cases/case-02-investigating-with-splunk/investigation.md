@@ -1,14 +1,14 @@
 # Case 02: Unauthorized Persistence & Remote Execution via WMIC and Encoded PowerShell
 
-- **Alert / Scope:** Splunk Enterprise SIEM Investigation (`investigatingwithsplunk`)
+- **Environment:** TryHackMe – *Investigating with Splunk* (Medium) | Static SIEM Dataset (Sysmon & Windows Event Logs)
 - **Severity:** `Critical` | **Triage Verdict:** `True Positive`
-- **Escalation Decision:** `Escalated to Tier 2 / Host Isolation & Remediation`
+- **Escalation Decision:** `Escalate to Tier 2 / Recommend Host Isolation & Account Remediation`
 - **MITRE ATT&CK:** `T1047` (Windows Management Instrumentation), `T1136.001` (Local Account Creation), `T1036.005` (Masquerading), `T1059.001` (PowerShell Execution), `T1027` (Obfuscated/Encoded Commands), `T1112` (Modify Registry), `T1071.001` (Web Protocols)
 
 ---
 
 ## 1. Executive Summary
-During SIEM triage of Windows event logs and Sysmon telemetry in Splunk, an unauthorized lateral execution event was detected where compromised domain account `Cybertees\James` invoked Windows Management Instrumentation (`WMIC.exe /node:WORKSTATION6`) to remotely create a rogue local account (`A1berto`). Forensic inspection confirmed account persistence committed to the Security Account Manager (`HKLM\SAM\SAM\Domains\Account\Users\Names\A1berto`) via character-substitution masquerading (`l` replaced with `1` to mimic legitimate user `Alberto`), while compromised workstation `james.browne` recorded 79 obfuscated PowerShell pipeline executions (Event ID 4103) communicating with internal staging server `hxxp[://]10[.]10[.]10[.]5/news[.]php`. Immediate containment was executed by isolating the affected hosts, terminating active sessions, purging the backdoor account, and escalating the case to Tier-2 DFIR for enterprise-wide lateral movement scoping.
+During SIEM triage of Windows event logs and Sysmon telemetry in Splunk, an unauthorized lateral execution event was detected where compromised domain account `Cybertees\James` invoked Windows Management Instrumentation (`WMIC.exe /node:WORKSTATION6`) to remotely create a rogue local account (`A1berto`). Forensic inspection confirmed account persistence committed to the Security Account Manager (`HKLM\SAM\SAM\Domains\Account\Users\Names\A1berto`) via character-substitution masquerading (`l` replaced with `1` to mimic legitimate user `Alberto`), while compromised workstation `james.browne` recorded 79 obfuscated PowerShell pipeline executions (Event ID 4103) communicating with internal staging server `hxxp[://]10[.]10[.]10[.]5/news[.]php`. Recommended immediate host isolation, session termination, removal of the rogue `A1berto` backdoor account, and Tier-2 DFIR escalation for enterprise-wide lateral-movement scoping.
 
 ---
 
@@ -147,21 +147,23 @@ To validate the incident with forensic certainty, standard benign operational ex
 
 ---
 
-## 6. Containment & Remediation Actions
+## 6. Recommended Containment & Remediation Actions
+
+*(Because Investigating with Splunk is a static SIEM log-analysis room, the steps below define the production response playbook and detection rules for this intrusion chain.)*
 
 ### 1. Host-Level Containment
-- **Network Isolation:** Quarantined `WORKSTATION6` (`Micheal.Beaven`) and `james.browne` using EDR host isolation to prevent further lateral movement.
-- **Account Remediation:** Deleted unauthorized local account `A1berto` via `net user A1berto /delete` and scrubbed residual registry entries from the SAM database.
-- **Process Termination:** Terminated all active PowerShell (`powershell.exe`) and WMI-spawned child processes across affected endpoints.
+- **Network Isolation:** Isolate `WORKSTATION6` (`Micheal.Beaven`), `server`, and `james.browne` via EDR to halt lateral movement.
+- **Account Remediation:** Remove the unauthorized local account `A1berto` (`net user A1berto /delete`) on `WORKSTATION6` and verify SAM registry cleanup.
+- **Process Termination:** Terminate any lingering PowerShell (`powershell.exe`) and WMI-spawned child processes across the affected hosts.
 
 ### 2. Identity-Level Remediation
-- **Credential Revocation:** Immediately disabled `Cybertees\James`, forced a domain password reset, and revoked all active Kerberos Ticket Granting Tickets (TGTs).
-- **Domain Audit:** Reviewed authentication logs across all domain controllers for anomalous logon events involving `James`, `Alberto`, and `A1berto`.
+- **Credential Revocation:** Disable or reset `Cybertees\James`, revoke active Kerberos TGTs, and investigate how `James` was initially compromised on `server` / `james.browne`.
+- **Domain Audit:** Query Domain Controller security logs across the forest for authentication events involving `James`, `Alberto`, and `A1berto`.
 
 ### 3. Network Hardening & Detection Engineering
-- **Internal Firewall Rules:** Blocked all internal network routing to `10[.]10[.]10[.]5` and sinkholed HTTP requests targeting `/news.php`.
-- **WMI Hardening:** Restricted remote WMI access (`DCOM / WMI namespace security`) to approved tier-0 management subnets.
-- **SIEM Detection Rules Implemented:**
+- **Internal Segmentation:** Isolate internal staging host `10[.]10[.]10[.]5` and block requests to `/news.php`.
+- **WMI Hardening:** Restrict remote WMI/DCOM execution to dedicated administrative jump hosts.
+- **Recommended SIEM Detection Rules:**
   1. *Rule 1 (WMIC Remote Process Spawn):* Detect `wmic.exe` executed with `/node:` arguments spawning account modification tools (`net.exe`, `net1.exe`).
   2. *Rule 2 (Visual Impersonation in Account Creation):* Alert on Event ID 4720 where the account name exhibits high Levenshtein similarity to existing domain users.
   3. *Rule 3 (Encoded PowerShell Commands):* Alert on `powershell.exe` command-line strings containing `-enc` or `-encodedcommand`.
